@@ -49,11 +49,23 @@ function plugin(options) {
                   }
                }
 
-               // if there is a config string, use that as the element class
+               // if there is a config string, use that as the element class or as other node attributes in case they are enclosed in brackets
+               // syntax: `::: form my-class [action="/handler"] [method="post"]`
                if (config.trim() !== '') {
-                  node.data.hProperties = {
-                     className: config.trim()
-                  }
+                  const attributes = config.trim().split(" ");
+                  let classNames = "";
+                  node.data.hProperties = {};
+                  attributes.forEach(attribute => {
+                     if (!attribute.startsWith("[")) {
+                        classNames += attribute + " ";
+                     } else {
+                        const groups = [...attribute.matchAll(/\[([^=]*)="([^"]*)"\]/g)];
+                        groups.forEach(group => {
+                           node.data.hProperties[group[1]] = group[2];
+                        })
+                     }
+                  })
+                  if (classNames.trim().length > 0) node.data.hProperties["className"] = classNames.trim();
                }
 
                // if the noparse flag is present treat the body as text content.
