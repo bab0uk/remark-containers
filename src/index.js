@@ -4,6 +4,28 @@ function plugin(options) {
    options = options || {
       default: true
    }
+
+   // Converts `class1 class2 attr1="value1" attr2="value2 with spaces"`
+   // to node with class names `class1 class2` and attributes with their values,
+   // including values containing spaces (e.g. CSS styles)
+   attributize = (config, node) => {
+      config = config.trim();
+      if (config.length > 0) {
+         node.data.hProperties = {};
+         let classNames = "";
+         const groups = [...config.matchAll(/([^=\s]+)(="([^"]*)")?/g)];
+         groups.forEach(group => {
+            if (group[3] !== undefined) {
+            node.data.hProperties[group[1]] = group[3];
+            } else {
+               classNames += group[0] + " ";
+            }
+         })
+         if (classNames.trim().length > 0) node.data.hProperties["className"] = classNames.trim();
+      }
+   }
+
+   options.attributize = options.attributize || attributize;
    options.custom = options.custom || []
 
    function defaultTokenizer(eat, value, silent) {
@@ -49,24 +71,8 @@ function plugin(options) {
                   }
                }
 
-               // if there is a config string, use that as the element class or as other node attributes in case they are enclosed in brackets
-               // syntax: `::: form my-class action="/handler" method="post"
-               if (config.trim() !== '') {
-                  const attributes = config.trim().split(" ");
-                  let classNames = "";
-                  node.data.hProperties = {};
-                  attributes.forEach(attribute => {
-                     if (attribute.indexOf("=") < 0) {
-                        classNames += attribute + " ";
-                     } else {
-                        const groups = [...attribute.matchAll(/([^=]*)="?([^"]*)"?/g)];
-                        groups.forEach(group => {
-                           node.data.hProperties[group[1]] = group[2];
-                        })
-                     }
-                  })
-                  if (classNames.trim().length > 0) node.data.hProperties["className"] = classNames.trim();
-               }
+               // Extract classes and attributes, if any.
+               options.attributize(config, node);
 
                // if the noparse flag is present treat the body as text content.
                if (noparse) {
@@ -142,7 +148,7 @@ function plugin(options) {
                      }
 
                      // pass our custom transform a tokenize function with the current location in case they want to parse the config 
-                     el.transform(node, config, (value) => this.tokenizeInline(value, now))
+                     el.transform(node, config, (value) => this.tokenizeInline(value, now), options.attributize)
 
                      add(node)
                      exit()
